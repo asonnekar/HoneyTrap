@@ -1,0 +1,55 @@
+from pydantic import BaseModel
+from typing import Optional, List
+
+
+class AnalyzeRequest(BaseModel):
+    content: str
+    type: str  # "email", "sms", "url", "call_script"
+
+
+class RedFlag(BaseModel):
+    text: str
+    reason: str
+
+
+class AnalyzeResponse(BaseModel):
+    risk_score: int
+    category: str
+    red_flags: List[RedFlag]
+    summary: str
+
+
+class DecoyIdentityResponse(BaseModel):
+    name: str
+    email: str
+    phone: str
+    address: str
+    ssn_fake: str
+    credit_card_fake: str
+    dob: str
+
+
+class StallRequest(BaseModel):
+    original_scam: str
+    scam_category: str
+
+
+class StallResponse(BaseModel):
+    reply: str
+
+
+class FeedSubmission(BaseModel):
+    content: str
+    type: str
+    region: Optional[str] = "Unknown"
+
+
+class FeedItem(BaseModel):
+    id: str
+    content: str
+    type: str
+    region: str
+    risk_score: int
+    category: str
+    submitted_at: str
+    upvotes: int

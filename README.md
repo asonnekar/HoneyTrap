@@ -27,8 +27,6 @@ scam pipeline itself through intelligent decoys and time-wasting interactions.
 - 🪤 **Decoy Generator** — Auto-generates fake personal info (names, addresses,
   card numbers) to feed back to scammers
 - 🤖 **Scam Staller** — Drafts lengthy, confusing reply emails to waste scammer time
-- 🔊 **Call Decoy Scripts** — Generates realistic dialogue users can play during
-  suspected scam calls
 - 🌐 **Community Scam Feed** — Crowdsourced scam submissions with trending alerts
   by region
 
@@ -38,12 +36,10 @@ scam pipeline itself through intelligent decoys and time-wasting interactions.
 
 | Layer       | Technology                          |
 |-------------|--------------------------------------|
-| Frontend    | React + Tailwind CSS                 |
+| Frontend    | React + Vite + Tailwind CSS          |
 | Backend     | FastAPI (Python)                     |
-| AI Engine   | OpenAI GPT-4o API / Google Gemini    |
+| AI Engine   | Ollama (local LLM, no API key needed)|
 | Fake Data   | Python Faker library                 |
-| URL Safety  | Google Safe Browsing API             |
-| SMS Layer   | Twilio Sandbox (free tier)           |
 | Hosting     | Vercel (frontend) + Render (backend) |
 
 ---
@@ -53,44 +49,60 @@ scam pipeline itself through intelligent decoys and time-wasting interactions.
 ### Prerequisites
 - Node.js >= 18
 - Python >= 3.10
-- OpenAI or Gemini API key
-- Google Safe Browsing API key (free)
+- [Ollama](https://ollama.com) installed and running locally
 
-### Installation
+### 1. Pull a model
+
+```bash
+ollama pull llama3.2
+```
+
+Any model that follows instructions well works. Recommended options:
+
+| Model | Notes |
+|-------|-------|
+| `llama3.2` | Default — good balance of speed and quality |
+| `llama3.1:8b` | More capable, slightly slower |
+| `mistral` | Lightweight, very fast |
+
+### 2. Install dependencies
 
 ```bash
 # Clone the repository
 git clone https://github.com/your-team/honeytrap.git
 cd honeytrap
 
-# Install frontend dependencies
+# Frontend
 cd client
 npm install
 
-# Install backend dependencies
+# Backend
 cd ../server
 pip install -r requirements.txt
 ```
 
-### Environment Variables
+### 3. Configure environment
 
-Create a `.env` file in `/server`:
+The default `.env` in `/server` works out of the box with Ollama:
 
 ```env
-OPENAI_API_KEY=your_openai_key
-GOOGLE_SAFE_BROWSING_KEY=your_google_key
-TWILIO_ACCOUNT_SID=your_twilio_sid
-TWILIO_AUTH_TOKEN=your_twilio_token
+OLLAMA_BASE_URL=http://localhost:11434/api
+OLLAMA_MODEL=llama3.2
 ```
 
-### Running the App
+Change `OLLAMA_MODEL` to swap models without restarting the server.
+
+### 4. Run the app
 
 ```bash
-# Start backend
+# Terminal 1 — make sure Ollama is running
+ollama serve
+
+# Terminal 2 — start the backend
 cd server
 uvicorn main:app --reload
 
-# Start frontend (in a new terminal)
+# Terminal 3 — start the frontend
 cd client
 npm run dev
 ```
@@ -110,6 +122,30 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## 📁 Project Structure
+
+```
+honeytrap/
+├── client/                  # React + Vite frontend
+│   └── src/
+│       ├── App.jsx
+│       └── components/
+│           ├── AnalyzeTab.jsx
+│           ├── DecoyTab.jsx
+│           ├── FeedTab.jsx
+│           └── RiskMeter.jsx
+└── server/                  # FastAPI backend
+    ├── main.py
+    ├── models.py
+    ├── llm.py               # Ollama client + JSON parser
+    └── routers/
+        ├── analyze.py       # POST /api/analyze
+        ├── decoy.py         # POST /api/decoy/identity & /stall
+        └── feed.py          # GET/POST /api/feed
+```
+
+---
+
 ## 📸 Screenshots
 
 > *(Add screenshots or a demo GIF here)*
@@ -118,25 +154,26 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🗺️ Roadmap
 
-- [ ] Email & SMS scam detection
-- [ ] AI risk scoring with red flag highlights
-- [ ] Decoy identity generator
-- [ ] Scam staller email drafter
+- [x] Email & SMS scam detection
+- [x] AI risk scoring with red flag highlights
+- [x] Decoy identity generator
+- [x] Scam staller email drafter
+- [x] Community scam feed with upvoting
 - [ ] Browser extension for real-time URL checking
-- [ ] Voice call analysis via Twilio
+- [ ] Voice call analysis
 - [ ] Mobile app (React Native)
-- [ ] Scam pattern ML model trained on community data
+- [ ] Fine-tuned local model trained on community data
 
 ---
 
 ## 👥 Team
 
-| Name | Role |
-|------|------|
-| [Aneesh Sonnekar] 
-| [Dylan Jian]
-| [Luke Fenstermaker]
-| [Conlan Mayberry]
+| Name |
+|------|
+| Aneesh Sonnekar |
+| Dylan Jian |
+| Luke Fenstermaker |
+| Conlan Mayberry |
 
 ---
 
