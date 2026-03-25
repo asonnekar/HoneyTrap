@@ -9,6 +9,8 @@ waste scammers' time and protect potential victims.
 
 Built for the Buckeye Black Box Hackathon · March 2026
 
+Using the prompt: "Develop a bot or agent that detects likely scams across calls, texts, emails, or websites, then helps protect users by flagging risk, and safely disrupting scam attempts through decoys, or time-wasting interactions." 
+
 ---
 
 ## 🚨 The Problem
