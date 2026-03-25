@@ -88,7 +88,7 @@ pip install -r requirements.txt
 The default `.env` in `/server` works out of the box with Ollama:
 
 ```env
-OLLAMA_BASE_URL=http://localhost:11434/api
+OLLAMA_BASE_URL=http://localhost:11434/v1
 OLLAMA_MODEL=llama3.2
 ```
 
