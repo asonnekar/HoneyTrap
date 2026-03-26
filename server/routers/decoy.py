@@ -1,6 +1,8 @@
 import os
 import random
+import re
 import sys
+import unicodedata
 from fastapi import APIRouter, HTTPException
 from faker import Faker
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -11,14 +13,41 @@ router = APIRouter()
 fake = Faker()
 
 
+def _slug_name_part(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", normalized.lower())
+
+
+def _build_email(name: str, dob: str) -> str:
+    parts = [_slug_name_part(part) for part in name.split()]
+    parts = [part for part in parts if part]
+
+    first = parts[0] if parts else "pat"
+    last = parts[-1] if len(parts) > 1 else "wilson"
+    birth_year = dob[-4:]
+
+    patterns = [
+        f"{first}.{last}",
+        f"{first}{last}",
+        f"{first[0]}{last}",
+        f"{first}.{last}{birth_year}",
+        f"{first}{last[:1]}{birth_year[-2:]}",
+    ]
+
+    local_part = random.choice(patterns)
+    domain = fake.free_email_domain()
+    return f"{local_part}@{domain}"
+
+
 @router.post("/decoy/identity", response_model=DecoyIdentityResponse)
 async def generate_identity():
     """Generate a realistic but completely fake identity to waste scammers' time."""
     ssn = f"{random.randint(100, 899)}-{random.randint(10, 99)}-{random.randint(1000, 9999)}"
     dob = fake.date_of_birth(minimum_age=65, maximum_age=82).strftime("%m/%d/%Y")
+    name = fake.name()
     return DecoyIdentityResponse(
-        name=fake.name(),
-        email=fake.email(),
+        name=name,
+        email=_build_email(name, dob),
         phone=fake.phone_number(),
         address=fake.address().replace("\n", ", "),
         ssn_fake=ssn,
