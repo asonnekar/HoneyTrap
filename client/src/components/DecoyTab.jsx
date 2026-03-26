@@ -249,6 +249,25 @@ export default function DecoyTab({ analysisResult }) {
 
         {stallReply && (
           <div
+            className="mt-4 glass rounded-2xl px-5 py-4 border border-[rgba(239,186,99,0.12)] animate-fade-in-up"
+            style={{ background: 'rgba(239,186,99,0.04)' }}
+          >
+            <p className="text-[rgba(244,234,215,0.8)] text-xs font-bold uppercase tracking-[0.2em] mb-2.5 flex items-center gap-2">
+              <span>📞</span> Phone Call Delivery Tips
+            </p>
+            <ul className="text-[rgba(244,234,215,0.55)] text-sm space-y-1.5 leading-relaxed list-none">
+              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Use a slow, shaky grandma/grandpa voice — speak softly, trail off mid-sentence, and pause often like you're trying to remember something.</li>
+              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Never hang up, no matter what they say. If they get frustrated, act concerned and confused: <em>"Oh dear, did I say something wrong?"</em></li>
+              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Pretend you can't hear well — ask them to repeat themselves constantly. <em>"What's that? You'll have to speak up, honey."</em></li>
+              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Go on long tangents about your cat, your grandkids, or what you had for lunch. Circle back with <em>"Now what were we talking about?"</em></li>
+              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Read the generated reply below as a loose script — don't rush it. The longer you take, the more of their time you waste.</li>
+              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>If they ask for numbers or info, read them painfully slowly, "correct" yourself, then start over from the beginning.</li>
+            </ul>
+          </div>
+        )}
+
+        {stallReply && (
+          <div
             className="mt-4 glass rounded-2xl overflow-hidden animate-fade-in-up"
             style={{ boxShadow: '0 18px 36px rgba(0,0,0,0.18), 0 0 18px rgba(126,180,137,0.05)' }}
           >
