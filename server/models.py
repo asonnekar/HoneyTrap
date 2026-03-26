@@ -36,6 +36,9 @@ class StallRequest(BaseModel):
 
 class StallResponse(BaseModel):
     reply: str
+    persona_name: str
+    persona_gender: str
+    delivery_tips: List[str]
 
 
 class FeedSubmission(BaseModel):
