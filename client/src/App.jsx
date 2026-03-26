@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import AnalyzeTab from './components/AnalyzeTab'
 import DecoyTab from './components/DecoyTab'
+import StallerTab from './components/StallerTab'
 import FeedTab from './components/FeedTab'
 
 const TABS = [
   { label: 'Analyze', icon: '🔍' },
-  { label: 'Decoy Mode', icon: '🎭' },
+  { label: 'Decoy Identity', icon: '🎭' },
+  { label: 'Scam Staller', icon: '🤖' },
   { label: 'Community Feed', icon: '🌐' },
 ]
 
@@ -80,10 +82,11 @@ export default function App() {
         {activeTab === 0 && (
           <AnalyzeTab onResult={setAnalysisResult} onContentChange={setScamContent} />
         )}
-        {activeTab === 1 && (
-          <DecoyTab analysisResult={analysisResult} initialContent={scamContent} />
+        {activeTab === 1 && <DecoyTab />}
+        {activeTab === 2 && (
+          <StallerTab analysisResult={analysisResult} />
         )}
-        {activeTab === 2 && <FeedTab />}
+        {activeTab === 3 && <FeedTab />}
       </main>
 
       <footer className="relative z-10 mt-16 border-t border-[rgba(255,231,194,0.05)]">
