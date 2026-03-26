@@ -30,6 +30,23 @@ def chat(messages: list[dict], temperature: float = 0.3) -> str:
     return response.choices[0].message.content
 
 
+def _extract_json_object(text: str) -> dict:
+    """Extract and parse the first JSON object from a model response."""
+    text = (text or "").strip()
+    if not text:
+        raise ValueError("Ollama returned an empty response.")
+
+    fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fence:
+        text = fence.group(1).strip()
+
+    brace = re.search(r"\{[\s\S]*\}", text)
+    if brace:
+        text = brace.group(0)
+
+    return json.loads(text)
+
+
 def chat_json(messages: list[dict], temperature: float = 0.2) -> dict:
     """
     Send a chat request expecting a JSON response.
@@ -37,14 +54,32 @@ def chat_json(messages: list[dict], temperature: float = 0.2) -> dict:
     """
     text = chat(messages, temperature=temperature)
 
-    # Strip markdown fences if present: ```json ... ``` or ``` ... ```
-    fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
-    if fence:
-        text = fence.group(1).strip()
-
-    # Extract the first {...} block in case of preamble text
-    brace = re.search(r"\{[\s\S]*\}", text)
-    if brace:
-        text = brace.group(0)
-
-    return json.loads(text)
+    try:
+        return _extract_json_object(text)
+    except Exception:
+        # Ask the model to repair its prior response into valid JSON only.
+        repair_messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Convert the user's content into a single valid JSON object only. "
+                    "Return raw JSON with no markdown, no explanation, and no extra text."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Rewrite this into valid JSON only:\n\n"
+                    f"{text}"
+                ),
+            },
+        ]
+        repaired_text = chat(repair_messages, temperature=0)
+        try:
+            return _extract_json_object(repaired_text)
+        except Exception as repair_error:
+            raise ValueError(
+                "The model did not return valid JSON. "
+                "Check that Ollama is running, the selected model is installed, "
+                "and try again with a longer scam-like sample."
+            ) from repair_error

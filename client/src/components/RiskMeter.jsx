@@ -4,14 +4,14 @@ export default function RiskMeter({ score }) {
   const filled = (score / 100) * circumference
 
   const color =
-    score < 30 ? '#22c55e'
-    : score < 60 ? '#f59e0b'
-    : '#ef4444'
+    score < 30 ? '#7eb489'
+    : score < 60 ? '#d99a36'
+    : '#e07a63'
 
   const glowColor =
-    score < 30 ? 'rgba(34,197,94,0.7)'
-    : score < 60 ? 'rgba(245,158,11,0.7)'
-    : 'rgba(239,68,68,0.7)'
+    score < 30 ? 'rgba(126,180,137,0.55)'
+    : score < 60 ? 'rgba(217,154,54,0.55)'
+    : 'rgba(224,122,99,0.5)'
 
   const label =
     score < 30 ? 'LOW RISK'
@@ -21,21 +21,13 @@ export default function RiskMeter({ score }) {
   return (
     <div className="flex flex-col items-center shrink-0">
       <svg viewBox="0 0 180 100" className="w-44">
-        <defs>
-          <filter id="arc-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        </defs>
-        {/* Track */}
         <path
           d="M 18 90 A 72 72 0 0 1 162 90"
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="rgba(255,234,205,0.08)"
           strokeWidth="12"
           strokeLinecap="round"
         />
-        {/* Glow layer (thicker, blurred) */}
         <path
           d="M 18 90 A 72 72 0 0 1 162 90"
           fill="none"
@@ -43,10 +35,9 @@ export default function RiskMeter({ score }) {
           strokeWidth="18"
           strokeLinecap="round"
           strokeDasharray={`${filled} ${circumference}`}
-          opacity="0.25"
-          style={{ filter: 'blur(6px)', transition: 'stroke-dasharray 0.65s ease' }}
+          opacity="0.22"
+          style={{ filter: 'blur(7px)', transition: 'stroke-dasharray 0.65s ease' }}
         />
-        {/* Main arc */}
         <path
           d="M 18 90 A 72 72 0 0 1 162 90"
           fill="none"
@@ -55,18 +46,18 @@ export default function RiskMeter({ score }) {
           strokeLinecap="round"
           strokeDasharray={`${filled} ${circumference}`}
           style={{
-            filter: `drop-shadow(0 0 5px ${glowColor})`,
+            filter: `drop-shadow(0 0 6px ${glowColor})`,
             transition: 'stroke-dasharray 0.65s ease',
           }}
         />
-        {/* Score */}
         <text
-          x="90" y="75"
+          x="90"
+          y="75"
           textAnchor="middle"
           fill={color}
           fontSize="36"
           fontWeight="bold"
-          fontFamily="ui-monospace, monospace"
+          fontFamily="Georgia, serif"
           style={{ filter: `drop-shadow(0 0 8px ${glowColor})` }}
         >
           {score}
@@ -74,7 +65,7 @@ export default function RiskMeter({ score }) {
       </svg>
       <span
         className="text-[10px] font-black tracking-[0.18em] -mt-1"
-        style={{ color, textShadow: `0 0 10px ${glowColor}` }}
+        style={{ color, textShadow: `0 0 8px ${glowColor}` }}
       >
         {label}
       </span>
