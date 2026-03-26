@@ -15,6 +15,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(0)
   const [analysisResult, setAnalysisResult] = useState(null)
   const [scamContent, setScamContent] = useState('')
+  const shellClass = 'w-full max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-10'
 
   return (
     <div className="relative min-h-screen text-[#f4ead7] overflow-x-hidden">
@@ -26,7 +27,7 @@ export default function App() {
       </div>
 
       <header className="relative z-10 sticky top-0 border-b border-[rgba(255,231,194,0.06)] bg-[rgba(18,15,11,0.78)] backdrop-blur-xl">
-        <div className="max-w-3xl mx-auto px-5 py-4 flex items-center gap-4">
+        <div className={`${shellClass} py-4 flex items-center gap-4`}>
           <div className="relative">
             <span className="text-3xl drop-shadow-lg">🍯</span>
             <span
@@ -51,12 +52,12 @@ export default function App() {
       </header>
 
       <nav className="relative z-10 border-b border-[rgba(255,231,194,0.05)] bg-[rgba(18,15,11,0.56)] backdrop-blur-xl">
-        <div className="max-w-3xl mx-auto px-5 flex gap-1">
+        <div className={`${shellClass} flex gap-2 overflow-x-auto`}>
           {TABS.map((tab, i) => (
             <button
               key={tab.label}
               onClick={() => setActiveTab(i)}
-              className={`relative px-5 py-3.5 text-sm font-semibold transition-all duration-200 ${
+              className={`relative shrink-0 whitespace-nowrap px-5 py-3.5 text-sm font-semibold transition-all duration-200 ${
                 activeTab === i
                   ? 'text-[var(--honey-bright)]'
                   : 'text-[rgba(244,234,215,0.42)] hover:text-[rgba(244,234,215,0.72)]'
@@ -78,7 +79,7 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="relative z-10 max-w-3xl mx-auto px-5 py-8">
+      <main className={`${shellClass} relative z-10 py-8 lg:py-10 min-h-[calc(100vh-220px)]`}>
         {activeTab === 0 && (
           <AnalyzeTab onResult={setAnalysisResult} onContentChange={setScamContent} />
         )}
@@ -90,7 +91,7 @@ export default function App() {
       </main>
 
       <footer className="relative z-10 mt-16 border-t border-[rgba(255,231,194,0.05)]">
-        <div className="max-w-3xl mx-auto px-5 py-4 flex items-center justify-between">
+        <div className={`${shellClass} py-4 flex items-center justify-between`}>
           <p className="text-xs text-[rgba(244,234,215,0.22)]">🍯 HoneyTrap - Buckeye Black Box Hackathon 2026</p>
           <p className="text-xs text-[rgba(244,234,215,0.22)]">Fighting back, one decoy at a time.</p>
         </div>
