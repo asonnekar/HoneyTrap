@@ -66,20 +66,25 @@ async def generate_identity():
 @router.post("/decoy/stall", response_model=StallResponse)
 async def generate_stall_reply(request: StallRequest):
     """Generate a lengthy, confusing reply to waste scammers' time."""
-    prompt = f"""You are helping protect a potential scam victim by generating a realistic, time-wasting reply to the following scam message.
+    prompt = f"""You are helping protect a potential scam victim by generating a realistic, extremely long, time-wasting reply to the following scam message.
 
-Write a response from the perspective of an elderly, confused, but well-meaning person. The response should:
-1. Seem genuinely interested and eager to help, but keep misunderstanding key details
-2. Include 2-3 irrelevant personal anecdotes (mention grandchildren, a recent doctor visit, a neighbor named something like "Earl" or "Marjorie")
-3. Ask multiple confusing, off-topic clarifying questions that require the scammer to respond
-4. Occasionally mention wrong names, addresses, or account numbers that are clearly made up
-5. Be at least 4 paragraphs long to maximize time waste
-6. End with a question that requires another response from the scammer
+Write a response from the perspective of an elderly, confused, but well-meaning person. The response MUST be very long — at least 8-10 paragraphs. The response should:
+1. Seem genuinely interested and eager to help, but keep misunderstanding key details over and over
+2. Include 4-5 long, rambling, irrelevant personal anecdotes — mention grandchildren by name, a recent doctor visit with specific details about what the doctor said, a neighbor named something like "Earl" or "Marjorie" and what they've been up to lately, a story about your late spouse, something funny your cat or dog did this morning, a recipe you tried last week, etc.
+3. Go off on extended tangents — start answering the scammer's request, then trail off into a completely unrelated story, then circle back but get confused about what you were saying
+4. Ask at least 5-6 confusing, off-topic clarifying questions scattered throughout that require the scammer to respond
+5. Mention multiple wrong names, addresses, account numbers, and phone numbers that are clearly made up — then "correct" yourself with different wrong details
+6. Express repeated confusion about technology — mention you're not sure how to do things on the computer, ask if your grandson Billy can help, wonder if you need to go to the bank in person instead
+7. Include at least one long paragraph where you try to explain something completely unrelated like a church event, a TV show you watched, or a problem with your plumbing
+8. Repeatedly say you want to help and are very concerned, to keep the scammer hooked
+9. End with multiple questions that absolutely require another response from the scammer
+
+Remember: the longer and more rambling the better. Every paragraph should be substantial. Do NOT be concise. Drag everything out. Repeat yourself. Go on tangents within tangents.
 
 Scam type: {request.scam_category}
 Scam message: {request.original_scam}
 
-Write ONLY the reply text. No JSON, no preamble, no meta-commentary."""
+Write ONLY the reply text. No JSON, no preamble, no meta-commentary. Make it VERY long."""
 
     try:
         reply = llm.chat([{"role": "user", "content": prompt}], temperature=0.85)
