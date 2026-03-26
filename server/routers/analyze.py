@@ -135,22 +135,30 @@ def merge_red_flags(llm_flags: list[dict], heuristic_flags: list[dict]) -> list[
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_content(request: AnalyzeRequest):
-    prompt = f"""You are a scam detection expert. Analyze the following {request.type} content for scam indicators.
+    prompt = f"""You are an impartial message analyst. Your job is to determine whether the following {request.type} content is a scam or a legitimate message. You must be unbiased — many messages are completely normal and safe.
 
 Return ONLY a valid JSON object with these exact fields:
 - "risk_score": integer 0-100 (0=definitely safe, 100=definite scam)
 - "category": one of: "phishing", "impersonation", "prize_fraud", "tech_support", "romance_scam", "investment_fraud", "medicare_scam", "irs_scam", "package_delivery", "legitimate", "suspicious"
 - "red_flags": array of objects, each with:
-    - "text": exact short phrase (under 60 chars) copied verbatim from the content that is suspicious
+    - "text": exact short phrase (under 60 chars) copied VERBATIM from the content — you must be able to find this exact string in the content below
     - "reason": one-sentence explanation of why this phrase is a red flag
 - "summary": 1-2 sentence verdict explaining the overall assessment
 
 Scoring guidance:
-- Credential verification requests, urgent account threats, and suspicious login links should usually score at least 70.
-- Threats of suspension, language like "act immediately", and requests to click a link to restore access are strong phishing signals.
-- Do not mark content as legitimate if it includes pressure to verify an account through a link.
+- 0-15: Clearly legitimate — normal business communications, OTP/verification codes, order confirmations, appointment reminders, shipping updates, two-factor authentication messages.
+- 16-40: Mostly safe but with minor unusual elements worth noting.
+- 41-65: Suspicious — contains some scam indicators but could go either way.
+- 66-85: Likely a scam — multiple strong scam signals.
+- 86-100: Almost certainly a scam — classic scam patterns, fake urgency, credential harvesting.
 
-Only include phrases in red_flags that are literally present in the content below.
+Important considerations:
+- Verification codes, OTPs, and 2FA messages from known services are LEGITIMATE. A code expiring in a few minutes is normal, not urgency pressure.
+- "Don't share this code" or "we will never ask for your code/password" are standard security disclaimers used by real companies — they are signs of LEGITIMACY, not red flags.
+- Not every message with a time limit is a pressure tactic. Distinguish real service messages from scams by looking at the overall context.
+- If the message does not ask the user to click a link, provide credentials, send money, or take any risky action, it is very likely legitimate.
+- Return an empty red_flags array if nothing is genuinely suspicious.
+- NEVER fabricate or paraphrase quotes. Every "text" value in red_flags must appear character-for-character in the content below.
 
 Content to analyze:
 {request.content}"""
@@ -161,12 +169,12 @@ Content to analyze:
 
         llm_score = int(llm_data.get("risk_score", 0))
         heuristic_score = heuristic_data["risk_score"]
-        final_score = max(llm_score, heuristic_score)
+        final_score = int(llm_score * 0.7 + heuristic_score * 0.3)
 
         llm_category = llm_data.get("category", "suspicious")
-        if heuristic_score >= 70 and llm_category in {"legitimate", "suspicious"}:
-            final_category = heuristic_data["category"]
-        elif heuristic_score >= 45 and llm_category == "legitimate":
+        if llm_category == "legitimate" and heuristic_score < 45:
+            final_category = "legitimate"
+        elif heuristic_score >= 70 and llm_category == "legitimate":
             final_category = heuristic_data["category"]
         else:
             final_category = llm_category
@@ -177,9 +185,7 @@ Content to analyze:
         )
 
         final_summary = llm_data.get("summary", "").strip()
-        if heuristic_score > llm_score and heuristic_data["summary"]:
-            final_summary = heuristic_data["summary"]
-        elif not final_summary and heuristic_data["summary"]:
+        if not final_summary and heuristic_data["summary"]:
             final_summary = heuristic_data["summary"]
 
         return AnalyzeResponse(
