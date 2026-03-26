@@ -136,7 +136,13 @@ export default function AnalyzeTab({ onResult, onContentChange }) {
         {CONTENT_TYPES.map((type) => (
           <button
             key={type.id}
-            onClick={() => setContentType(type.id)}
+            onClick={() => {
+              setContentType(type.id)
+              setContent('')
+              setResult(null)
+              setError('')
+              onContentChange?.('')
+            }}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
               contentType === type.id
                 ? 'btn-glow'
