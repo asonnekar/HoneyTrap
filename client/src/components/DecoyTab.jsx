@@ -64,6 +64,9 @@ export default function DecoyTab({ analysisResult }) {
   const [stallContent, setStallContent] = useState('')
   const [stallCategory, setStallCategory] = useState('phishing')
   const [stallReply, setStallReply] = useState('')
+  const [stallPersonaName, setStallPersonaName] = useState('')
+  const [stallPersonaGender, setStallPersonaGender] = useState('')
+  const [stallTips, setStallTips] = useState([])
   const [stallLoading, setStallLoading] = useState(false)
 
   const [error, setError] = useState('')
@@ -87,6 +90,9 @@ export default function DecoyTab({ analysisResult }) {
     setStallLoading(true)
     setError('')
     setStallReply('')
+    setStallTips([])
+    setStallPersonaName('')
+    setStallPersonaGender('')
     try {
       const res = await fetch(`${API_BASE}/decoy/stall`, {
         method: 'POST',
@@ -100,7 +106,11 @@ export default function DecoyTab({ analysisResult }) {
         const err = await res.json()
         throw new Error(err.detail || 'Generation failed')
       }
-      setStallReply((await res.json()).reply)
+      const data = await res.json()
+      setStallReply(data.reply)
+      setStallPersonaName(data.persona_name)
+      setStallPersonaGender(data.persona_gender)
+      setStallTips(data.delivery_tips || [])
     } catch (e) {
       setError(e.message || 'Generation failed. Check that Ollama is running.')
     } finally {
@@ -247,21 +257,18 @@ export default function DecoyTab({ analysisResult }) {
           </button>
         </div>
 
-        {stallReply && (
+        {stallReply && stallTips.length > 0 && (
           <div
             className="mt-4 glass rounded-2xl px-5 py-4 border border-[rgba(239,186,99,0.12)] animate-fade-in-up"
             style={{ background: 'rgba(239,186,99,0.04)' }}
           >
             <p className="text-[rgba(244,234,215,0.8)] text-xs font-bold uppercase tracking-[0.2em] mb-2.5 flex items-center gap-2">
-              <span>📞</span> Phone Call Delivery Tips
+              <span>📞</span> Phone Delivery Tips — Playing {stallPersonaName} ({stallPersonaGender})
             </p>
             <ul className="text-[rgba(244,234,215,0.55)] text-sm space-y-1.5 leading-relaxed list-none">
-              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Use a slow, shaky grandma/grandpa voice — speak softly, trail off mid-sentence, and pause often like you're trying to remember something.</li>
-              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Never hang up, no matter what they say. If they get frustrated, act concerned and confused: <em>"Oh dear, did I say something wrong?"</em></li>
-              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Pretend you can't hear well — ask them to repeat themselves constantly. <em>"What's that? You'll have to speak up, honey."</em></li>
-              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Go on long tangents about your cat, your grandkids, or what you had for lunch. Circle back with <em>"Now what were we talking about?"</em></li>
-              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>Read the generated reply below as a loose script — don't rush it. The longer you take, the more of their time you waste.</li>
-              <li><span className="text-[var(--honey-bright)] mr-1.5">•</span>If they ask for numbers or info, read them painfully slowly, "correct" yourself, then start over from the beginning.</li>
+              {stallTips.map((tip, i) => (
+                <li key={i}><span className="text-[var(--honey-bright)] mr-1.5">•</span>{tip}</li>
+              ))}
             </ul>
           </div>
         )}
