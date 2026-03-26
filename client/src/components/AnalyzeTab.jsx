@@ -131,7 +131,7 @@ export default function AnalyzeTab({ onResult, onContentChange }) {
   const cat = result ? (CATEGORY_META[result.category] || CATEGORY_META.suspicious) : null
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 min-h-[calc(100vh-320px)]">
       <div className="flex gap-2 flex-wrap">
         {CONTENT_TYPES.map((type) => (
           <button
@@ -160,8 +160,8 @@ export default function AnalyzeTab({ onResult, onContentChange }) {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder={selectedType.placeholder}
-          rows={7}
-          className="w-full input-glow rounded-2xl px-4 py-3.5 text-[rgba(244,234,215,0.9)] text-sm placeholder-[rgba(244,234,215,0.24)] resize-none leading-relaxed"
+          rows={10}
+          className="w-full min-h-[22rem] input-glow rounded-2xl px-5 py-4 text-[rgba(244,234,215,0.9)] text-sm placeholder-[rgba(244,234,215,0.24)] resize-none leading-relaxed"
         />
         <button
           onClick={handleAnalyze}
