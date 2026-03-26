@@ -39,6 +39,13 @@ def _build_email(name: str, dob: str) -> str:
     return f"{local_part}@{domain}"
 
 
+def _build_phone_number() -> str:
+    area_code = random.randint(200, 999)
+    exchange = random.randint(200, 999)
+    subscriber = random.randint(1000, 9999)
+    return f"({area_code}) - {exchange} - {subscriber}"
+
+
 @router.post("/decoy/identity", response_model=DecoyIdentityResponse)
 async def generate_identity():
     """Generate a realistic but completely fake identity to waste scammers' time."""
@@ -48,7 +55,7 @@ async def generate_identity():
     return DecoyIdentityResponse(
         name=name,
         email=_build_email(name, dob),
-        phone=fake.phone_number(),
+        phone=_build_phone_number(),
         address=fake.address().replace("\n", ", "),
         ssn_fake=ssn,
         credit_card_fake=fake.credit_card_number(card_type="visa"),
