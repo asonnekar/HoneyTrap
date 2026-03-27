@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AnalyzeTab from './components/AnalyzeTab'
 import DecoyTab from './components/DecoyTab'
 import StallerTab from './components/StallerTab'
+import LiveCallTab from './components/LiveCallTab'
 import FeedTab from './components/FeedTab'
 import GmailTab from './components/GmailTab'
 
@@ -9,6 +10,7 @@ const TABS = [
   { label: 'Analyze', icon: '🔍' },
   { label: 'Decoy Identity', icon: '🎭' },
   { label: 'Scam Staller', icon: '🤖' },
+  { label: 'Live Call', icon: '📞' },
   { label: 'Community Feed', icon: '🌐' },
   { label: 'Gmail Scanner', icon: '📧' },
 ]
@@ -17,7 +19,19 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(0)
   const [analysisResult, setAnalysisResult] = useState(null)
   const [scamContent, setScamContent] = useState('')
+  const [decoyLaunchCount, setDecoyLaunchCount] = useState(0)
+  const [stallerLaunchCount, setStallerLaunchCount] = useState(0)
   const shellClass = 'w-full max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-10'
+
+  const openDecoyFromAnalysis = () => {
+    setDecoyLaunchCount((count) => count + 1)
+    setActiveTab(1)
+  }
+
+  const openStallerFromAnalysis = () => {
+    setStallerLaunchCount((count) => count + 1)
+    setActiveTab(2)
+  }
 
   return (
     <div className="relative min-h-screen text-[#f4ead7] overflow-x-hidden">
@@ -83,14 +97,24 @@ export default function App() {
 
       <main className={`${shellClass} relative z-10 py-8 lg:py-10 min-h-[calc(100vh-220px)]`}>
         {activeTab === 0 && (
-          <AnalyzeTab onResult={setAnalysisResult} onContentChange={setScamContent} />
+          <AnalyzeTab
+            onResult={setAnalysisResult}
+            onContentChange={setScamContent}
+            onOpenDecoy={openDecoyFromAnalysis}
+            onOpenStaller={openStallerFromAnalysis}
+          />
         )}
-        {activeTab === 1 && <DecoyTab />}
+        {activeTab === 1 && <DecoyTab autoGenerateKey={decoyLaunchCount} />}
         {activeTab === 2 && (
-          <StallerTab analysisResult={analysisResult} />
+          <StallerTab
+            analysisResult={analysisResult}
+            initialContent={scamContent}
+            autoGenerateKey={stallerLaunchCount}
+          />
         )}
-        {activeTab === 3 && <FeedTab />}
-        {activeTab === 4 && <GmailTab />}
+        {activeTab === 3 && <LiveCallTab />}
+        {activeTab === 4 && <FeedTab />}
+        {activeTab === 5 && <GmailTab />}
       </main>
 
       <footer className="relative z-10 mt-16 border-t border-[rgba(255,231,194,0.05)]">

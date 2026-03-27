@@ -3,11 +3,16 @@ import random
 import re
 import sys
 import unicodedata
+import httpx
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from faker import Faker
+from dotenv import load_dotenv
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from models import DecoyIdentityResponse, StallRequest, StallResponse
+from models import DecoyIdentityResponse, StallRequest, StallResponse, LiveReplyRequest, LiveReplyResponse, TTSRequest
 import llm
+
+load_dotenv()
 
 router = APIRouter()
 fake = Faker()
@@ -46,6 +51,17 @@ def _build_phone_number() -> str:
     return f"({area_code}) - {exchange} - {subscriber}"
 
 
+def _build_delivery_tips(persona_name: str, persona_gender: str) -> list[str]:
+    return [
+        f"Use a slow, hesitant voice for {persona_name} and pause before important details like account numbers or names.",
+        f"If the scammer rushes you, have {persona_name} apologize and ask them to repeat the last instruction more slowly.",
+        "Read numbers one digit at a time, then stop, get confused, and restart from the beginning.",
+        "Answer one question, drift into a short side story, then ask what you were supposed to do next.",
+        f"Lean into the confused-but-cooperative {persona_gender} persona so the scammer stays engaged instead of hanging up.",
+        "End with two small clarification questions so the scammer feels they need to keep responding.",
+    ]
+
+
 @router.post("/decoy/identity", response_model=DecoyIdentityResponse)
 async def generate_identity():
     """Generate a realistic but completely fake identity to waste scammers' time."""
@@ -65,67 +81,34 @@ async def generate_identity():
 
 @router.post("/decoy/stall", response_model=StallResponse)
 async def generate_stall_reply(request: StallRequest):
-    """Generate a lengthy, confusing reply to waste scammers' time, plus delivery tips."""
+    """Generate a moderately long, confusing reply to waste scammers' time quickly."""
     persona_gender = random.choice(["grandma", "grandpa"])
     persona_name = fake.first_name_female() if persona_gender == "grandma" else fake.first_name_male()
 
-    reply_prompt = f"""You are helping protect a potential scam victim by generating a realistic, extremely long, time-wasting reply to the following scam message.
+    reply_prompt = f"""You are helping protect a potential scam victim by generating a realistic, time-wasting reply to the following scam message.
 
-Write a response from the perspective of {persona_name}, an elderly, confused, but well-meaning {persona_gender}. The response MUST be very long — at least 8-10 paragraphs. The response should:
-1. Seem genuinely interested and eager to help, but keep misunderstanding key details over and over
-2. Include 4-5 long, rambling, irrelevant personal anecdotes — mention grandchildren by name, a recent doctor visit with specific details about what the doctor said, a neighbor named something like "Earl" or "Marjorie" and what they've been up to lately, a story about your late spouse, something funny your cat or dog did this morning, a recipe you tried last week, etc.
-3. Go off on extended tangents — start answering the scammer's request, then trail off into a completely unrelated story, then circle back but get confused about what you were saying
-4. Ask at least 5-6 confusing, off-topic clarifying questions scattered throughout that require the scammer to respond
-5. Mention multiple wrong names, addresses, account numbers, and phone numbers that are clearly made up — then "correct" yourself with different wrong details
-6. Express repeated confusion about technology — mention you're not sure how to do things on the computer, ask if your grandson can help, wonder if you need to go to the bank in person instead
-7. Include at least one long paragraph where you try to explain something completely unrelated like a church event, a TV show you watched, or a problem with your plumbing
-8. Repeatedly say you want to help and are very concerned, to keep the scammer hooked
-9. End with multiple questions that absolutely require another response from the scammer
+Write a response from the perspective of {persona_name}, an elderly, confused, but well-meaning {persona_gender}. The response should:
+1. Be 3-4 paragraphs long
+2. Sound eager to help, but misunderstand key details
+3. Include 1-2 short irrelevant anecdotes
+4. Ask 3-4 clarifying questions that require the scammer to respond
+5. Mention at least one wrong number, address, or name and then correct it incorrectly
+6. End with a question that keeps the scammer talking
 
-Remember: the longer and more rambling the better. Every paragraph should be substantial. Do NOT be concise. Drag everything out. Repeat yourself. Go on tangents within tangents.
+Keep it believable and moderately long, but do not overdo it.
 
 Scam type: {request.scam_category}
 Scam message: {request.original_scam}
 
-Write ONLY the reply text. No JSON, no preamble, no meta-commentary. Make it VERY long."""
+Write ONLY the reply text. No JSON, no preamble, no meta-commentary."""
 
     try:
-        reply = llm.chat([{"role": "user", "content": reply_prompt}], temperature=0.85)
-
-        tips_prompt = f"""You are a voice acting coach helping someone impersonate "{persona_name}", a confused elderly {persona_gender}, on a phone call with a scammer. The goal is to waste the scammer's time and be as believable as possible.
-
-Here is the script they will be reading:
----
-{reply[:1500]}
----
-
-Generate exactly 6 short, practical, actionable delivery tips for performing this specific script over the phone. Each tip should be one sentence. The tips should:
-- Be specific to the persona's gender ({persona_gender}) and name ({persona_name})
-- Reference specific moments, names, or anecdotes from the script above
-- Cover voice technique (pitch, pace, breathing, trailing off)
-- Cover how to handle the scammer pushing back or getting impatient
-- Cover how to drag out specific parts of the script (reading numbers slowly, forgetting what you were saying)
-- Be funny and encouraging
-
-Respond with ONLY a JSON array of 6 strings. No other text. Example format:
-["tip 1", "tip 2", "tip 3", "tip 4", "tip 5", "tip 6"]"""
-
-        tips_result = llm.chat_json([{"role": "user", "content": tips_prompt}], temperature=0.7)
-
-        if isinstance(tips_result, list):
-            delivery_tips = [str(t) for t in tips_result[:6]]
-        else:
-            delivery_tips = [str(tips_result.get(k, "")) for k in list(tips_result.keys())[:6]] if isinstance(tips_result, dict) else []
-
-        if not delivery_tips:
-            delivery_tips = [
-                f"Use a slow, shaky {persona_gender} voice — speak softly and trail off mid-sentence.",
-                "Never hang up no matter what. If they get frustrated, say \"Oh dear, did I say something wrong?\"",
-                "Pretend you can't hear well — ask them to repeat everything.",
-                "Go on long tangents, then circle back with \"Now what were we talking about?\"",
-                f"Stay in character as {persona_name} the entire time — confused but eager to help.",
-                "When reading numbers, go painfully slow, then 'correct' yourself and start over.",
-            ]
+        reply = llm.chat(
+            [{"role": "user", "content": reply_prompt}],
+            temperature=0.75,
+            max_tokens=420,
+        )
+        delivery_tips = _build_delivery_tips(persona_name, persona_gender)
 
         return StallResponse(
             reply=reply,
@@ -135,3 +118,68 @@ Respond with ONLY a JSON array of 6 strings. No other text. Example format:
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stall generation error: {str(e)}")
+
+
+@router.post("/decoy/live-reply", response_model=LiveReplyResponse)
+async def generate_live_reply(request: LiveReplyRequest):
+    """Generate a short, conversational elderly persona reply for live phone calls."""
+    history_text = ""
+    for msg in request.conversation[-10:]:  # keep last 10 turns for context
+        role = "Scammer" if msg.get("role") == "scammer" else request.persona_name
+        history_text += f"{role}: {msg.get('text', '')}\n"
+
+    prompt = f"""You are {request.persona_name}, a confused, friendly, elderly {request.persona_gender} on a phone call with a scammer. Your goal is to waste the scammer's time while sounding completely natural and believable.
+
+Rules:
+- Respond with 1-3 SHORT sentences only — this is a real-time phone conversation, not an email.
+- Sound natural and conversational. Use filler words like "oh", "well", "hmm", "let me think", "oh dear".
+- Be confused, forgetful, and go on small tangents. Mishear things. Mix up details.
+- Ask clarifying questions that force the scammer to keep talking.
+- Never reveal you know it's a scam. Stay warm and cooperative but useless.
+- If they ask for personal info, give wrong details confidently, then second-guess yourself.
+- If they get impatient, get flustered and apologize profusely, then ask them to repeat everything.
+
+Scam type: {request.scam_category}
+
+Conversation so far:
+{history_text}
+
+Write ONLY {request.persona_name}'s next spoken reply. No quotes, no stage directions, no labels. Just the words {request.persona_name} would say."""
+
+    try:
+        reply = llm.chat([{"role": "user", "content": prompt}], temperature=0.85)
+        return LiveReplyResponse(reply=reply.strip())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Live reply error: {str(e)}")
+
+
+@router.post("/decoy/tts")
+async def text_to_speech(request: TTSRequest):
+    """Proxy text-to-speech through ElevenLabs and return audio bytes."""
+    api_key = os.getenv("ELEVENLABS_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ELEVENLABS_API_KEY not set in .env")
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{request.voice_id}"
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            url,
+            headers={
+                "xi-api-key": api_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "text": request.text,
+                "model_id": "eleven_flash_v2_5",
+                "voice_settings": {
+                    "stability": 0.65,
+                    "similarity_boost": 0.75,
+                },
+            },
+        )
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=resp.status_code, detail=f"ElevenLabs error: {resp.text}")
+
+    return Response(content=resp.content, media_type="audio/mpeg")

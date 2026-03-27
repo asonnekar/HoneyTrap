@@ -117,6 +117,11 @@ def heuristic_analysis(content: str) -> dict:
     }
 
 
+def should_skip_llm(heuristic_data: dict) -> bool:
+    """Use a fast local verdict when the phishing signals are already overwhelming."""
+    return heuristic_data["risk_score"] >= 80 and len(heuristic_data["red_flags"]) >= 3
+
+
 def merge_red_flags(llm_flags: list[dict], heuristic_flags: list[dict]) -> list[RedFlag]:
     merged = []
     seen = set()
@@ -163,8 +168,21 @@ Content to analyze:
 {content}"""
 
     try:
-        llm_data = llm.chat_json([{"role": "user", "content": prompt}], temperature=0.1)
         heuristic_data = heuristic_analysis(content)
+
+        if should_skip_llm(heuristic_data):
+            return AnalyzeResponse(
+                risk_score=heuristic_data["risk_score"],
+                category=heuristic_data["category"],
+                red_flags=[RedFlag(**flag) for flag in heuristic_data["red_flags"]],
+                summary=heuristic_data["summary"] or "This message has multiple strong phishing indicators.",
+            )
+
+        llm_data = llm.chat_json(
+            [{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=280,
+        )
 
         llm_score = int(llm_data.get("risk_score", 0))
         heuristic_score = heuristic_data["risk_score"]
