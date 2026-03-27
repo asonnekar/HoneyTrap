@@ -2,12 +2,14 @@ import { useState } from 'react'
 import AnalyzeTab from './components/AnalyzeTab'
 import DecoyTab from './components/DecoyTab'
 import StallerTab from './components/StallerTab'
+import LiveCallTab from './components/LiveCallTab'
 import FeedTab from './components/FeedTab'
 
 const TABS = [
   { label: 'Analyze', icon: '🔍' },
   { label: 'Decoy Identity', icon: '🎭' },
   { label: 'Scam Staller', icon: '🤖' },
+  { label: 'Live Call', icon: '📞' },
   { label: 'Community Feed', icon: '🌐' },
 ]
 
@@ -108,7 +110,8 @@ export default function App() {
             autoGenerateKey={stallerLaunchCount}
           />
         )}
-        {activeTab === 3 && <FeedTab />}
+        {activeTab === 3 && <LiveCallTab />}
+        {activeTab === 4 && <FeedTab />}
       </main>
 
       <footer className="relative z-10 mt-16 border-t border-[rgba(255,231,194,0.05)]">
