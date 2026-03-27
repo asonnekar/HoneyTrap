@@ -41,6 +41,17 @@ class StallResponse(BaseModel):
     delivery_tips: List[str]
 
 
+class LiveReplyRequest(BaseModel):
+    conversation: List[dict]  # [{"role": "scammer"|"persona", "text": "..."}]
+    persona_name: str
+    persona_gender: str
+    scam_category: str
+
+
+class LiveReplyResponse(BaseModel):
+    reply: str
+
+
 class FeedSubmission(BaseModel):
     content: str
     type: str
