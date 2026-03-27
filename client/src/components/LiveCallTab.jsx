@@ -46,6 +46,7 @@ export default function LiveCallTab() {
   const conversationRef = useRef([])
   const scrollRef = useRef(null)
   const isActiveRef = useRef(false)
+  const isSpeakingRef = useRef(false)
   const voiceEngineRef = useRef('browser')
   const elevenlabsVoiceRef = useRef(ELEVENLABS_VOICES[0].value)
 
@@ -190,6 +191,7 @@ export default function LiveCallTab() {
           if (!scammerText) return
 
           // stop listening while we think & speak
+          isSpeakingRef.current = true
           recognition.stop()
           setCurrentTranscript('')
 
@@ -211,6 +213,7 @@ export default function LiveCallTab() {
           }
 
           // resume listening if still active
+          isSpeakingRef.current = false
           if (isActiveRef.current) {
             setStatus('listening')
             try {
@@ -229,8 +232,8 @@ export default function LiveCallTab() {
     }
 
     recognition.onend = () => {
-      // auto-restart if session is active (browser stops recognition periodically)
-      if (isActiveRef.current && status !== 'thinking' && status !== 'speaking') {
+      // auto-restart if session is active and not mid-response (browser stops recognition periodically)
+      if (isActiveRef.current && !isSpeakingRef.current) {
         try {
           recognition.start()
         } catch {
@@ -241,7 +244,7 @@ export default function LiveCallTab() {
 
     recognition.start()
     setStatus('listening')
-  }, [fetchReply, speakReply, status])
+  }, [fetchReply, speakReply])
 
   const handleStart = () => {
     setError('')
