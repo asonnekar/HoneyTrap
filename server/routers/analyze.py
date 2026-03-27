@@ -1,13 +1,125 @@
 import os
 import re
 import sys
+from html.parser import HTMLParser
 from fastapi import APIRouter, HTTPException
+import httpx
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from models import AnalyzeRequest, AnalyzeResponse, RedFlag
 import llm
 
 router = APIRouter()
+
+
+# --- URL helpers ---
+
+class _TextExtractor(HTMLParser):
+    SKIP_TAGS = {"script", "style", "noscript", "head"}
+
+    def __init__(self):
+        super().__init__()
+        self._skip = 0
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() in self.SKIP_TAGS:
+            self._skip += 1
+
+    def handle_endtag(self, tag):
+        if tag.lower() in self.SKIP_TAGS:
+            self._skip = max(0, self._skip - 1)
+
+    def handle_data(self, data):
+        if not self._skip:
+            text = data.strip()
+            if text:
+                self.parts.append(text)
+
+    def get_text(self):
+        return " ".join(self.parts)
+
+
+def _extract_page_text(html: str) -> str:
+    try:
+        p = _TextExtractor()
+        p.feed(html)
+        return re.sub(r"\s+", " ", p.get_text()).strip()
+    except Exception:
+        return re.sub(r"<[^>]+>", " ", html)
+
+
+async def _fetch_url(url: str) -> dict:
+    """Fetch URL and return title, visible text, final URL, and redirect info."""
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=headers) as client:
+            resp = await client.get(url)
+        final_url = str(resp.url)
+        html = resp.text
+
+        title_m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+        title = re.sub(r"\s+", " ", title_m.group(1)).strip()[:200] if title_m else ""
+
+        text = _extract_page_text(html)[:3000]
+        return {
+            "ok": True,
+            "final_url": final_url,
+            "redirected": final_url.rstrip("/") != url.rstrip("/"),
+            "status_code": resp.status_code,
+            "title": title,
+            "text": text,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+# URL-specific structural heuristics (applied to the URL itself, not page content)
+_SUSPICIOUS_TLDS = {".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".click", ".link", ".work", ".rest", ".icu"}
+_BRAND_NAMES = ["paypal", "amazon", "apple", "microsoft", "google", "netflix", "facebook", "instagram",
+                "wellsfargo", "bankofamerica", "chase", "irs", "usps", "fedex", "dhl"]
+
+
+def _url_heuristics(url: str) -> list[dict]:
+    flags = []
+    url_lower = url.lower()
+
+    domain_m = re.search(r"https?://([^/?#\s]+)", url_lower)
+    if not domain_m:
+        return flags
+    host = domain_m.group(1)
+
+    # IP address as host
+    if re.match(r"\d{1,3}(\.\d{1,3}){3}(:\d+)?$", host):
+        flags.append({"text": host[:60], "reason": "Uses a raw IP address instead of a domain name — a common phishing tactic."})
+
+    # Deceptive @ in URL
+    if "@" in url:
+        flags.append({"text": url[:60], "reason": "URL contains '@' which can trick browsers into ignoring the real domain."})
+
+    # Suspicious TLD
+    tld = "." + host.split(".")[-1] if "." in host else ""
+    if tld in _SUSPICIOUS_TLDS:
+        flags.append({"text": host[:60], "reason": f"Uses a '{tld}' domain — frequently abused in phishing campaigns."})
+
+    # Known brand in subdomain but mismatched real domain
+    parts = host.split(".")
+    real_domain = ".".join(parts[-2:]) if len(parts) >= 2 else host
+    for brand in _BRAND_NAMES:
+        if brand in host and brand not in real_domain:
+            flags.append({"text": host[:60], "reason": f"Impersonates '{brand}' in the subdomain while the actual domain is different."})
+            break
+
+    # HTTP (non-HTTPS) for what appears to be a financial/login URL
+    sensitive_words = ["login", "account", "secure", "verify", "bank", "pay", "wallet", "signin"]
+    if url_lower.startswith("http://") and any(w in url_lower for w in sensitive_words):
+        flags.append({"text": url[:60], "reason": "Uses unencrypted HTTP for a page asking for sensitive information."})
+
+    # Excessive hyphens in domain
+    if host.count("-") >= 3:
+        flags.append({"text": host[:60], "reason": "Domain has many hyphens — often used to mimic legitimate domains while avoiding trademark conflicts."})
+
+    return flags
 
 
 HEURISTIC_RULES = [
@@ -139,33 +251,61 @@ def merge_red_flags(llm_flags: list[dict], heuristic_flags: list[dict]) -> list[
 
 
 async def run_analysis(content: str, content_type: str) -> AnalyzeResponse:
-    prompt = f"""You are an impartial message analyst. Your job is to determine whether the following {content_type} content is a scam or a legitimate message. You must be unbiased — many messages are completely normal and safe.
+    # For URLs: fetch the page and build a richer analysis context
+    url_fetch_info = None
+    url_structural_flags = []
+    if content_type == "url":
+        raw_url = content.strip().split()[0]  # take first token in case of extra text
+        url_structural_flags = _url_heuristics(raw_url)
+        url_fetch_info = await _fetch_url(raw_url)
+
+    # Build prompt content section
+    if content_type == "url" and url_fetch_info:
+        if url_fetch_info.get("ok"):
+            fetch_section = f"""URL: {content.strip()}
+Final URL after redirects: {url_fetch_info['final_url']}
+Redirected: {url_fetch_info['redirected']}
+HTTP status: {url_fetch_info['status_code']}
+Page title: {url_fetch_info['title'] or '(none)'}
+Page text (first 3000 chars):
+{url_fetch_info['text'] or '(no readable text found)'}"""
+        else:
+            fetch_section = f"""URL: {content.strip()}
+Page fetch failed: {url_fetch_info.get('error', 'unknown error')}
+(Analyze based on URL structure alone.)"""
+
+        prompt_content = fetch_section
+        prompt_type = "URL (with page content)"
+    else:
+        prompt_content = content
+        prompt_type = content_type
+
+    prompt = f"""You are an impartial scam analyst. Determine whether the following {prompt_type} is a scam or legitimate. Be unbiased — many URLs and messages are completely safe.
 
 Return ONLY a valid JSON object with these exact fields:
 - "risk_score": integer 0-100 (0=definitely safe, 100=definite scam)
 - "category": one of: "phishing", "impersonation", "prize_fraud", "tech_support", "romance_scam", "investment_fraud", "medicare_scam", "irs_scam", "package_delivery", "legitimate", "suspicious"
 - "red_flags": array of objects, each with:
-    - "text": exact short phrase (under 60 chars) copied VERBATIM from the content — you must be able to find this exact string in the content below
-    - "reason": one-sentence explanation of why this phrase is a red flag
-- "summary": 1-2 sentence verdict explaining the overall assessment
+    - "text": exact short phrase (under 60 chars) copied VERBATIM from the content — must appear character-for-character below
+    - "reason": one-sentence explanation of why this phrase is suspicious
+- "summary": 1-2 sentence verdict
 
 Scoring guidance:
-- 0-15: Clearly legitimate — normal business communications, OTP/verification codes, order confirmations, appointment reminders, shipping updates, two-factor authentication messages.
-- 16-40: Mostly safe but with minor unusual elements worth noting.
-- 41-65: Suspicious — contains some scam indicators but could go either way.
-- 66-85: Likely a scam — multiple strong scam signals.
-- 86-100: Almost certainly a scam — classic scam patterns, fake urgency, credential harvesting.
+- 0-15: Clearly legitimate.
+- 16-40: Mostly safe with minor concerns.
+- 41-65: Suspicious — some scam indicators but not conclusive.
+- 66-85: Likely a scam — multiple strong signals.
+- 86-100: Almost certainly a scam.
 
-Important considerations:
-- Verification codes, OTPs, and 2FA messages from known services are LEGITIMATE. A code expiring in a few minutes is normal, not urgency pressure.
-- "Don't share this code" or "we will never ask for your code/password" are standard security disclaimers used by real companies — they are signs of LEGITIMACY, not red flags.
-- Not every message with a time limit is a pressure tactic. Distinguish real service messages from scams by looking at the overall context.
-- If the message does not ask the user to click a link, provide credentials, send money, or take any risky action, it is very likely legitimate.
+For URLs specifically:
+- A URL that redirects to a completely different domain is highly suspicious.
+- Pages asking for login, payment, or personal info on non-HTTPS or unfamiliar domains are high risk.
+- Brand names in subdomains (e.g. paypal.legit.com.evilsite.ru) while the real domain differs is a major red flag.
 - Return an empty red_flags array if nothing is genuinely suspicious.
-- NEVER fabricate or paraphrase quotes. Every "text" value in red_flags must appear character-for-character in the content below.
+- NEVER fabricate quotes. Every "text" in red_flags must appear verbatim in the content below.
 
 Content to analyze:
-{content}"""
+{prompt_content}"""
 
     try:
         heuristic_data = heuristic_analysis(content)
@@ -174,7 +314,7 @@ Content to analyze:
             return AnalyzeResponse(
                 risk_score=heuristic_data["risk_score"],
                 category=heuristic_data["category"],
-                red_flags=[RedFlag(**flag) for flag in heuristic_data["red_flags"]],
+                red_flags=merge_red_flags(heuristic_data["red_flags"], url_structural_flags),
                 summary=heuristic_data["summary"] or "This message has multiple strong phishing indicators.",
             )
 
@@ -198,7 +338,7 @@ Content to analyze:
 
         final_flags = merge_red_flags(
             llm_data.get("red_flags", []),
-            heuristic_data["red_flags"],
+            heuristic_data["red_flags"] + url_structural_flags,
         )
 
         final_summary = llm_data.get("summary", "").strip()
