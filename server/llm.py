@@ -19,13 +19,19 @@ def get_client() -> OpenAI:
     return OpenAI(base_url=OLLAMA_BASE_URL, api_key="ollama")
 
 
-def chat(messages: list[dict], temperature: float = 0.3) -> str:
+def chat(messages: list[dict], temperature: float = 0.3, max_tokens: int | None = None) -> str:
     """Send a chat request and return the raw text response."""
     client = get_client()
+    request_args = {
+        "model": OLLAMA_MODEL,
+        "messages": messages,
+        "temperature": temperature,
+    }
+    if max_tokens is not None:
+        request_args["max_tokens"] = max_tokens
+
     response = client.chat.completions.create(
-        model=OLLAMA_MODEL,
-        messages=messages,
-        temperature=temperature,
+        **request_args,
     )
     return response.choices[0].message.content
 
@@ -47,12 +53,12 @@ def _extract_json_object(text: str) -> dict:
     return json.loads(text)
 
 
-def chat_json(messages: list[dict], temperature: float = 0.2) -> dict:
+def chat_json(messages: list[dict], temperature: float = 0.2, max_tokens: int | None = None) -> dict:
     """
     Send a chat request expecting a JSON response.
     Handles models that wrap JSON in markdown code fences.
     """
-    text = chat(messages, temperature=temperature)
+    text = chat(messages, temperature=temperature, max_tokens=max_tokens)
 
     try:
         return _extract_json_object(text)
@@ -74,7 +80,7 @@ def chat_json(messages: list[dict], temperature: float = 0.2) -> dict:
                 ),
             },
         ]
-        repaired_text = chat(repair_messages, temperature=0)
+        repaired_text = chat(repair_messages, temperature=0, max_tokens=max_tokens)
         try:
             return _extract_json_object(repaired_text)
         except Exception as repair_error:
