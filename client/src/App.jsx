@@ -3,12 +3,14 @@ import AnalyzeTab from './components/AnalyzeTab'
 import DecoyTab from './components/DecoyTab'
 import StallerTab from './components/StallerTab'
 import FeedTab from './components/FeedTab'
+import GmailTab from './components/GmailTab'
 
 const TABS = [
   { label: 'Analyze', icon: '🔍' },
   { label: 'Decoy Identity', icon: '🎭' },
   { label: 'Scam Staller', icon: '🤖' },
   { label: 'Community Feed', icon: '🌐' },
+  { label: 'Gmail Scanner', icon: '📧' },
 ]
 
 export default function App() {
@@ -88,6 +90,7 @@ export default function App() {
           <StallerTab analysisResult={analysisResult} />
         )}
         {activeTab === 3 && <FeedTab />}
+        {activeTab === 4 && <GmailTab />}
       </main>
 
       <footer className="relative z-10 mt-16 border-t border-[rgba(255,231,194,0.05)]">

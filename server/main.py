@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import analyze, decoy, feed
+from routers import analyze, decoy, feed, gmail
 
 app = FastAPI(title="HoneyTrap API", version="1.0.0")
 
@@ -15,6 +15,7 @@ app.add_middleware(
 app.include_router(analyze.router, prefix="/api")
 app.include_router(decoy.router, prefix="/api")
 app.include_router(feed.router, prefix="/api")
+app.include_router(gmail.router, prefix="/api")
 
 
 @app.get("/")

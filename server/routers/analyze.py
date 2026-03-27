@@ -133,9 +133,8 @@ def merge_red_flags(llm_flags: list[dict], heuristic_flags: list[dict]) -> list[
     return merged
 
 
-@router.post("/analyze", response_model=AnalyzeResponse)
-async def analyze_content(request: AnalyzeRequest):
-    prompt = f"""You are an impartial message analyst. Your job is to determine whether the following {request.type} content is a scam or a legitimate message. You must be unbiased — many messages are completely normal and safe.
+async def run_analysis(content: str, content_type: str) -> AnalyzeResponse:
+    prompt = f"""You are an impartial message analyst. Your job is to determine whether the following {content_type} content is a scam or a legitimate message. You must be unbiased — many messages are completely normal and safe.
 
 Return ONLY a valid JSON object with these exact fields:
 - "risk_score": integer 0-100 (0=definitely safe, 100=definite scam)
@@ -161,11 +160,11 @@ Important considerations:
 - NEVER fabricate or paraphrase quotes. Every "text" value in red_flags must appear character-for-character in the content below.
 
 Content to analyze:
-{request.content}"""
+{content}"""
 
     try:
         llm_data = llm.chat_json([{"role": "user", "content": prompt}], temperature=0.1)
-        heuristic_data = heuristic_analysis(request.content)
+        heuristic_data = heuristic_analysis(content)
 
         llm_score = int(llm_data.get("risk_score", 0))
         heuristic_score = heuristic_data["risk_score"]
@@ -196,3 +195,8 @@ Content to analyze:
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
+
+
+@router.post("/analyze", response_model=AnalyzeResponse)
+async def analyze_content(request: AnalyzeRequest):
+    return await run_analysis(request.content, request.type)

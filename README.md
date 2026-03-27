@@ -71,7 +71,7 @@ Any model that follows instructions well works. Recommended options:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-team/honeytrap.git
+git clone https://github.com/asonnekar/honeytrap.git
 cd honeytrap
 
 # Frontend
