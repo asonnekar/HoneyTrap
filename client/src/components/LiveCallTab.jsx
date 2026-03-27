@@ -18,7 +18,7 @@ const VOICE_OPTIONS = [
 ]
 
 const ELEVENLABS_VOICES = [
-  { value: 'XrExE9yKIg1WjnnlVkGX', label: 'Lily — Elderly Female', gender: 'grandma' },
+  { value: 'vFLqXa8bgbofGarf6fZh', label: 'Dorothy — Supportive Grandma', gender: 'grandma' },
   { value: 'JBFqnCBsd6RMkjVDRZzb', label: 'George — Elderly Male', gender: 'grandpa' },
 ]
 
