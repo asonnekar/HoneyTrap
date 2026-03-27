@@ -6,7 +6,7 @@ import unicodedata
 from fastapi import APIRouter, HTTPException
 from faker import Faker
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from models import DecoyIdentityResponse, StallRequest, StallResponse
+from models import DecoyIdentityResponse, StallRequest, StallResponse, LiveReplyRequest, LiveReplyResponse
 import llm
 
 router = APIRouter()
@@ -135,3 +135,36 @@ Respond with ONLY a JSON array of 6 strings. No other text. Example format:
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stall generation error: {str(e)}")
+
+
+@router.post("/decoy/live-reply", response_model=LiveReplyResponse)
+async def generate_live_reply(request: LiveReplyRequest):
+    """Generate a short, conversational elderly persona reply for live phone calls."""
+    history_text = ""
+    for msg in request.conversation[-10:]:  # keep last 10 turns for context
+        role = "Scammer" if msg.get("role") == "scammer" else request.persona_name
+        history_text += f"{role}: {msg.get('text', '')}\n"
+
+    prompt = f"""You are {request.persona_name}, a confused, friendly, elderly {request.persona_gender} on a phone call with a scammer. Your goal is to waste the scammer's time while sounding completely natural and believable.
+
+Rules:
+- Respond with 1-3 SHORT sentences only — this is a real-time phone conversation, not an email.
+- Sound natural and conversational. Use filler words like "oh", "well", "hmm", "let me think", "oh dear".
+- Be confused, forgetful, and go on small tangents. Mishear things. Mix up details.
+- Ask clarifying questions that force the scammer to keep talking.
+- Never reveal you know it's a scam. Stay warm and cooperative but useless.
+- If they ask for personal info, give wrong details confidently, then second-guess yourself.
+- If they get impatient, get flustered and apologize profusely, then ask them to repeat everything.
+
+Scam type: {request.scam_category}
+
+Conversation so far:
+{history_text}
+
+Write ONLY {request.persona_name}'s next spoken reply. No quotes, no stage directions, no labels. Just the words {request.persona_name} would say."""
+
+    try:
+        reply = llm.chat([{"role": "user", "content": prompt}], temperature=0.85)
+        return LiveReplyResponse(reply=reply.strip())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Live reply error: {str(e)}")
