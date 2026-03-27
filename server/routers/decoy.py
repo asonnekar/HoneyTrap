@@ -193,7 +193,7 @@ async def text_to_speech(request: TTSRequest):
             },
             json={
                 "text": request.text,
-                "model_id": "eleven_monolingual_v1",
+                "model_id": "eleven_flash_v2_5",
                 "voice_settings": {
                     "stability": 0.65,
                     "similarity_boost": 0.75,
