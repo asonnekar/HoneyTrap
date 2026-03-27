@@ -12,6 +12,16 @@ const SCAM_CATEGORIES = [
   { value: 'romance_scam', label: 'Romance Scam' },
 ]
 
+const VOICE_OPTIONS = [
+  { value: 'browser', label: 'Browser Voice (Free)' },
+  { value: 'elevenlabs', label: 'ElevenLabs (Realistic)' },
+]
+
+const ELEVENLABS_VOICES = [
+  { value: 'XrExE9yKIg1WjnnlVkGX', label: 'Lily — Elderly Female', gender: 'grandma' },
+  { value: 'JBFqnCBsd6RMkjVDRZzb', label: 'George — Elderly Male', gender: 'grandpa' },
+]
+
 function PulseRing({ active }) {
   if (!active) return null
   return (
@@ -22,6 +32,8 @@ function PulseRing({ active }) {
 export default function LiveCallTab() {
   const [status, setStatus] = useState('idle') // idle | listening | thinking | speaking
   const [category, setCategory] = useState('phishing')
+  const [voiceEngine, setVoiceEngine] = useState('browser')
+  const [elevenlabsVoice, setElevenlabsVoice] = useState(ELEVENLABS_VOICES[0].value)
   const [personaName, setPersonaName] = useState('')
   const [personaGender, setPersonaGender] = useState('')
   const [conversation, setConversation] = useState([])
@@ -30,9 +42,20 @@ export default function LiveCallTab() {
 
   const recognitionRef = useRef(null)
   const synthRef = useRef(window.speechSynthesis)
+  const audioRef = useRef(null)
   const conversationRef = useRef([])
   const scrollRef = useRef(null)
   const isActiveRef = useRef(false)
+  const voiceEngineRef = useRef('browser')
+  const elevenlabsVoiceRef = useRef(ELEVENLABS_VOICES[0].value)
+
+  useEffect(() => {
+    voiceEngineRef.current = voiceEngine
+  }, [voiceEngine])
+
+  useEffect(() => {
+    elevenlabsVoiceRef.current = elevenlabsVoice
+  }, [elevenlabsVoice])
 
   // keep ref in sync with state for use inside callbacks
   useEffect(() => {
@@ -46,8 +69,13 @@ export default function LiveCallTab() {
   }, [conversation, currentTranscript])
 
   const pickPersona = () => {
-    const genders = ['grandma', 'grandpa']
-    const gender = genders[Math.floor(Math.random() * 2)]
+    let gender
+    if (voiceEngine === 'elevenlabs') {
+      const selectedVoice = ELEVENLABS_VOICES.find((v) => v.value === elevenlabsVoice)
+      gender = selectedVoice?.gender || 'grandma'
+    } else {
+      gender = ['grandma', 'grandpa'][Math.floor(Math.random() * 2)]
+    }
     const grandmaNames = ['Dorothy', 'Mildred', 'Edna', 'Gertrude', 'Agnes', 'Beatrice', 'Ethel', 'Mabel']
     const grandpaNames = ['Harold', 'Eugene', 'Clarence', 'Earl', 'Walter', 'Herbert', 'Chester', 'Bernard']
     const names = gender === 'grandma' ? grandmaNames : grandpaNames
@@ -57,13 +85,12 @@ export default function LiveCallTab() {
     return { name, gender }
   }
 
-  const speakReply = useCallback((text) => {
+  const speakBrowser = useCallback((text) => {
     return new Promise((resolve) => {
       const synth = synthRef.current
       synth.cancel()
       const utterance = new SpeechSynthesisUtterance(text)
 
-      // try to pick an older-sounding voice
       const voices = synth.getVoices()
       const preferred = voices.find(
         (v) => v.lang.startsWith('en') && v.name.toLowerCase().includes('male')
@@ -77,6 +104,34 @@ export default function LiveCallTab() {
       synth.speak(utterance)
     })
   }, [])
+
+  const speakElevenLabs = useCallback(async (text) => {
+    const res = await fetch(`${API_BASE}/decoy/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice_id: elevenlabsVoiceRef.current }),
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.detail || 'TTS failed')
+    }
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    return new Promise((resolve) => {
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => { URL.revokeObjectURL(url); resolve() }
+      audio.onerror = () => { URL.revokeObjectURL(url); resolve() }
+      audio.play()
+    })
+  }, [])
+
+  const speakReply = useCallback((text) => {
+    if (voiceEngineRef.current === 'elevenlabs') {
+      return speakElevenLabs(text)
+    }
+    return speakBrowser(text)
+  }, [speakBrowser, speakElevenLabs])
 
   const fetchReply = useCallback(async (convo, persona) => {
     const res = await fetch(`${API_BASE}/decoy/live-reply`, {
@@ -200,6 +255,10 @@ export default function LiveCallTab() {
   const handleStop = () => {
     isActiveRef.current = false
     synthRef.current.cancel()
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
@@ -247,6 +306,38 @@ export default function LiveCallTab() {
               ))}
             </select>
           </div>
+
+          <div className="flex items-center gap-3">
+            <label className="text-[10px] text-[rgba(244,234,215,0.34)] uppercase tracking-[0.25em] shrink-0">
+              Voice
+            </label>
+            <select
+              value={voiceEngine}
+              onChange={(e) => setVoiceEngine(e.target.value)}
+              className="input-glow rounded-xl px-3 py-2 text-[rgba(244,234,215,0.76)] text-sm bg-transparent"
+            >
+              {VOICE_OPTIONS.map((v) => (
+                <option key={v.value} value={v.value}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {voiceEngine === 'elevenlabs' && (
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] text-[rgba(244,234,215,0.34)] uppercase tracking-[0.25em] shrink-0">
+                Character
+              </label>
+              <select
+                value={elevenlabsVoice}
+                onChange={(e) => setElevenlabsVoice(e.target.value)}
+                className="input-glow rounded-xl px-3 py-2 text-[rgba(244,234,215,0.76)] text-sm bg-transparent"
+              >
+                {ELEVENLABS_VOICES.map((v) => (
+                  <option key={v.value} value={v.value}>{v.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <button
             onClick={handleStart}

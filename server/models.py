@@ -52,6 +52,11 @@ class LiveReplyResponse(BaseModel):
     reply: str
 
 
+class TTSRequest(BaseModel):
+    text: str
+    voice_id: str = "XrExE9yKIg1WjnnlVkGX"  # default: "Lily" elderly female
+
+
 class FeedSubmission(BaseModel):
     content: str
     type: str

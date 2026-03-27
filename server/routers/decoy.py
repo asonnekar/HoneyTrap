@@ -3,11 +3,16 @@ import random
 import re
 import sys
 import unicodedata
+import httpx
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from faker import Faker
+from dotenv import load_dotenv
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from models import DecoyIdentityResponse, StallRequest, StallResponse, LiveReplyRequest, LiveReplyResponse
+from models import DecoyIdentityResponse, StallRequest, StallResponse, LiveReplyRequest, LiveReplyResponse, TTSRequest
 import llm
+
+load_dotenv()
 
 router = APIRouter()
 fake = Faker()
@@ -168,3 +173,35 @@ Write ONLY {request.persona_name}'s next spoken reply. No quotes, no stage direc
         return LiveReplyResponse(reply=reply.strip())
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Live reply error: {str(e)}")
+
+
+@router.post("/decoy/tts")
+async def text_to_speech(request: TTSRequest):
+    """Proxy text-to-speech through ElevenLabs and return audio bytes."""
+    api_key = os.getenv("ELEVENLABS_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ELEVENLABS_API_KEY not set in .env")
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{request.voice_id}"
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            url,
+            headers={
+                "xi-api-key": api_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "text": request.text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {
+                    "stability": 0.65,
+                    "similarity_boost": 0.75,
+                },
+            },
+        )
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=resp.status_code, detail=f"ElevenLabs error: {resp.text}")
+
+    return Response(content=resp.content, media_type="audio/mpeg")
