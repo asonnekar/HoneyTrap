@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const API_BASE = 'http://localhost:8000/api'
 
@@ -57,11 +57,12 @@ function SectionHeader({ icon, title, desc }) {
   )
 }
 
-export default function DecoyTab() {
+export default function DecoyTab({ autoGenerateKey = 0 }) {
   const [identity, setIdentity] = useState(null)
   const [identityLoading, setIdentityLoading] = useState(false)
 
   const [error, setError] = useState('')
+  const lastAutoGenerateKey = useRef(0)
 
   const generateIdentity = async () => {
     setIdentityLoading(true)
@@ -76,6 +77,12 @@ export default function DecoyTab() {
       setIdentityLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!autoGenerateKey || autoGenerateKey === lastAutoGenerateKey.current) return
+    lastAutoGenerateKey.current = autoGenerateKey
+    generateIdentity()
+  }, [autoGenerateKey])
 
   return (
     <div className="space-y-10">
