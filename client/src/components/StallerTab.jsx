@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const API_BASE = 'http://localhost:8000/api'
 
@@ -34,7 +34,7 @@ function CopyButton({ value }) {
   )
 }
 
-export default function StallerTab({ analysisResult }) {
+export default function StallerTab({ analysisResult, initialContent = '', autoGenerateKey = 0 }) {
   const [stallContent, setStallContent] = useState('')
   const [stallCategory, setStallCategory] = useState('phishing')
   const [stallReply, setStallReply] = useState('')
@@ -44,6 +44,7 @@ export default function StallerTab({ analysisResult }) {
   const [stallLoading, setStallLoading] = useState(false)
 
   const [error, setError] = useState('')
+  const lastAutoGenerateKey = useRef(0)
 
   const generateStall = async () => {
     if (!stallContent.trim()) return
@@ -77,6 +78,52 @@ export default function StallerTab({ analysisResult }) {
       setStallLoading(false)
     }
   }
+
+  useEffect(() => {
+    setStallContent(initialContent || '')
+  }, [initialContent])
+
+  useEffect(() => {
+    if (!autoGenerateKey || autoGenerateKey === lastAutoGenerateKey.current) return
+    lastAutoGenerateKey.current = autoGenerateKey
+    if (!initialContent.trim()) return
+
+    setStallContent(initialContent)
+
+    const run = async () => {
+      setStallLoading(true)
+      setError('')
+      setStallReply('')
+      setStallTips([])
+      setStallPersonaName('')
+      setStallPersonaGender('')
+      try {
+        const res = await fetch(`${API_BASE}/decoy/stall`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            original_scam: initialContent,
+            scam_category: analysisResult?.category || stallCategory,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.detail || 'Generation failed')
+        }
+        const data = await res.json()
+        setStallReply(data.reply)
+        setStallPersonaName(data.persona_name)
+        setStallPersonaGender(data.persona_gender)
+        setStallTips(data.delivery_tips || [])
+      } catch (e) {
+        setError(e.message || 'Generation failed. Check that Ollama is running.')
+      } finally {
+        setStallLoading(false)
+      }
+    }
+
+    run()
+  }, [autoGenerateKey, initialContent, analysisResult, stallCategory])
 
   return (
     <div className="space-y-6">
